@@ -14,6 +14,8 @@ npm run generate:assets   # 產生 public/templates/disbursement.pdf
 npm run dev
 ```
 
+建議將產生的 `package-lock.json` 一併 commit，之後 CI 可改回使用 `npm ci` 以固定依賴版本。
+
 開啟終端機顯示的網址（通常 http://localhost:5173/BPM-Prototype/）。
 
 ## 建置
