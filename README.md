@@ -36,7 +36,7 @@ npm run preview
 
 本專案使用 `HashRouter`（網址含 `#/`），以相容 GitHub Pages 靜態 hosting。
 
-PDF 產生需載入繁體中文字型（預設從 jsDelivr CDN 取得）。可選：將 `NotoSansTC-Regular.ttf` 放到 `public/fonts/` 作為離線備援。
+PDF 模板固定欄位為**英文**（`public/templates/disbursement.pdf`，座標見 `src/config/pdf-layout.ts`）。表單內容若含中文，會自動載入 Noto Sans TC（CDN）；可選將 `NotoSansTC-Regular.ttf` 放到 `public/fonts/`。變更模板後請執行 `npm run generate:assets`。
 
 **localStorage 不儲存 PDF 本體**（僅存表單與流程），避免容量爆掉導致白屏；開啟案件時會依需要重新產生 PDF。若曾發生 `QuotaExceededError`，請在瀏覽器清除本站資料後再試。
 

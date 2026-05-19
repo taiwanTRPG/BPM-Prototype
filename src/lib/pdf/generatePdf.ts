@@ -1,8 +1,8 @@
 import { PDFDocument, rgb } from 'pdf-lib';
-import { PDF_LAYOUT, type SealKey } from '../../config/pdf-layout';
+import { PDF_LAYOUT, PDF_PAGE, type FieldKey, type SealKey } from '../../config/pdf-layout';
 import type { DisbursementForm } from '../../types';
 import { calcTotal, formatCurrency } from '../workflow';
-import { embedChineseFonts, type PdfFonts } from './fonts';
+import { embedPdfFonts, type PdfFontSet } from './fonts';
 
 const SEAL_FILES: Record<SealKey, string> = {
   supervisor: 'supervisor.png',
@@ -48,10 +48,50 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines.length ? lines : [''];
 }
 
+function drawLabel(
+  page: ReturnType<PDFDocument['getPages']>[0],
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  fonts: PdfFontSet,
+) {
+  page.drawText(`${text}:`, {
+    x,
+    y,
+    size,
+    font: fonts.latin.bold,
+    color: rgb(0.28, 0.28, 0.32),
+  });
+}
+
+function drawValueLines(
+  page: ReturnType<PDFDocument['getPages']>[0],
+  value: string,
+  x: number,
+  y: number,
+  size: number,
+  lineHeight: number,
+  maxWidth: number,
+  fonts: PdfFontSet,
+) {
+  const maxChars = Math.max(20, Math.floor(maxWidth / (size * 0.55)));
+  const lines = wrapText(value, maxChars);
+  lines.forEach((line, i) => {
+    page.drawText(line, {
+      x,
+      y: y - i * lineHeight,
+      size,
+      font: fonts.pick(line),
+      color: rgb(0.1, 0.1, 0.12),
+    });
+  });
+}
+
 async function drawProgrammaticSeal(
   page: ReturnType<PDFDocument['getPages']>[0],
   key: SealKey,
-  font: PdfFonts['regular'],
+  fonts: PdfFontSet,
 ) {
   const slot = PDF_LAYOUT.seals[key];
   const cx = slot.x + slot.width / 2;
@@ -65,12 +105,12 @@ async function drawProgrammaticSeal(
     borderWidth: 2,
   });
   const label = slot.label;
-  const textWidth = font.widthOfTextAtSize(label, 14);
+  const textWidth = fonts.latin.bold.widthOfTextAtSize(label, 11);
   page.drawText(label, {
     x: cx - textWidth / 2,
-    y: cy - 6,
-    size: 14,
-    font,
+    y: cy - 5,
+    size: 11,
+    font: fonts.latin.bold,
     color: rgb(0.75, 0.1, 0.1),
   });
 }
@@ -79,7 +119,7 @@ async function embedSeal(
   doc: PDFDocument,
   page: ReturnType<PDFDocument['getPages']>[0],
   key: SealKey,
-  font: PdfFonts['regular'],
+  fonts: PdfFontSet,
 ) {
   const slot = PDF_LAYOUT.seals[key];
   const png = await loadSealPng(key);
@@ -96,84 +136,122 @@ async function embedSeal(
     });
     return;
   }
-  await drawProgrammaticSeal(page, key, font);
+  await drawProgrammaticSeal(page, key, fonts);
+}
+
+function drawFieldValue(
+  page: ReturnType<PDFDocument['getPages']>[0],
+  key: FieldKey,
+  value: string,
+  fonts: PdfFontSet,
+) {
+  const cfg = PDF_LAYOUT.fields[key];
+  const lineHeight = 'lineHeight' in cfg ? cfg.lineHeight : 14;
+  const maxWidth = 'maxWidth' in cfg ? cfg.maxWidth : 420;
+  drawValueLines(
+    page,
+    value,
+    cfg.valueX,
+    cfg.valueY,
+    cfg.size,
+    lineHeight,
+    maxWidth,
+    fonts,
+  );
+}
+
+async function drawFormContent(
+  page: ReturnType<PDFDocument['getPages']>[0],
+  form: DisbursementForm,
+  fonts: PdfFontSet,
+  options: { drawLabels: boolean },
+) {
+  if (options.drawLabels) {
+    const { title, subtitle } = PDF_LAYOUT;
+    page.drawText(title.text, {
+      x: title.x,
+      y: title.y,
+      size: title.size,
+      font: fonts.latin.bold,
+      color: rgb(0.12, 0.12, 0.16),
+    });
+    page.drawText(subtitle.text, {
+      x: subtitle.x,
+      y: subtitle.y,
+      size: subtitle.size,
+      font: fonts.latin.regular,
+      color: rgb(0.4, 0.4, 0.45),
+    });
+
+    const box = PDF_LAYOUT.sealBox;
+    page.drawRectangle({
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      borderColor: rgb(0.85, 0.85, 0.9),
+      borderWidth: 1,
+    });
+    page.drawText('Approvals', {
+      x: box.x + 8,
+      y: box.y + box.height - 14,
+      size: 10,
+      font: fonts.latin.bold,
+      color: rgb(0.35, 0.35, 0.4),
+    });
+
+    for (const key of Object.keys(PDF_LAYOUT.fields) as FieldKey[]) {
+      const cfg = PDF_LAYOUT.fields[key];
+      if (key === 'lineItems') continue;
+      drawLabel(page, cfg.label, cfg.labelX, cfg.labelY, cfg.size, fonts);
+    }
+
+    const itemsCfg = PDF_LAYOUT.fields.lineItems;
+    drawLabel(
+      page,
+      itemsCfg.label,
+      itemsCfg.labelX,
+      itemsCfg.labelY,
+      itemsCfg.size,
+      fonts,
+    );
+  }
+
+  drawFieldValue(page, 'applyDate', form.applyDate, fonts);
+  drawFieldValue(page, 'applicantName', form.applicantName, fonts);
+  drawFieldValue(page, 'purpose', form.purpose, fonts);
+
+  const itemsCfg = PDF_LAYOUT.fields.lineItems;
+  form.lineItems.slice(0, itemsCfg.maxRows).forEach((row, i) => {
+    const text = `${i + 1}. ${row.item}  ${formatCurrency(row.amount)}${row.note ? ` (${row.note})` : ''}`;
+    page.drawText(text, {
+      x: itemsCfg.valueX,
+      y: itemsCfg.valueY - i * itemsCfg.lineHeight,
+      size: itemsCfg.size,
+      font: fonts.pick(text),
+      color: rgb(0.1, 0.1, 0.12),
+    });
+  });
+
+  drawFieldValue(
+    page,
+    'totalAmount',
+    formatCurrency(calcTotal(form.lineItems)),
+    fonts,
+  );
+  drawFieldValue(page, 'payeeInfo', form.payeeInfo, fonts);
 }
 
 async function drawFormOnBlank(
   doc: PDFDocument,
   form: DisbursementForm,
   activeSeals: SealKey[],
-  fonts: PdfFonts,
+  fonts: PdfFontSet,
 ) {
-  const page = doc.addPage([595, 842]);
-  const { regular: font, bold: fontBold } = fonts;
-
-  page.drawText('出帳申請單', {
-    x: PDF_LAYOUT.title.x,
-    y: PDF_LAYOUT.title.y,
-    size: PDF_LAYOUT.title.size,
-    font: fontBold,
-    color: rgb(0.15, 0.15, 0.2),
-  });
-  page.drawText('Disbursement Request (Demo)', {
-    x: 120,
-    y: PDF_LAYOUT.title.y - 24,
-    size: 12,
-    font,
-    color: rgb(0.35, 0.35, 0.4),
-  });
-
-  const drawLabeled = (
-    key: keyof typeof PDF_LAYOUT.fields,
-    value: string,
-  ) => {
-    const cfg = PDF_LAYOUT.fields[key];
-    page.drawText(`${cfg.label}：`, {
-      x: 72,
-      y: cfg.y + 4,
-      size: 10,
-      font: fontBold,
-      color: rgb(0.3, 0.3, 0.35),
-    });
-    const maxWidth = 'maxWidth' in cfg ? cfg.maxWidth : 420;
-    const lines = wrapText(value, Math.floor(maxWidth / 14));
-    lines.forEach((line, i) => {
-      page.drawText(line, {
-        x: cfg.x,
-        y: cfg.y - i * 14,
-        size: cfg.size,
-        font,
-      });
-    });
-  };
-
-  drawLabeled('applyDate', form.applyDate);
-  drawLabeled('applicantName', form.applicantName);
-  drawLabeled('purpose', form.purpose);
-
-  const itemsCfg = PDF_LAYOUT.fields.lineItems;
-  page.drawText(`${itemsCfg.label}：`, {
-    x: 72,
-    y: itemsCfg.y + 4,
-    size: 10,
-    font: fontBold,
-    color: rgb(0.3, 0.3, 0.35),
-  });
-  form.lineItems.slice(0, 8).forEach((row, i) => {
-    const text = `${i + 1}. ${row.item}  ${formatCurrency(row.amount)}${row.note ? `  (${row.note})` : ''}`;
-    page.drawText(text, {
-      x: itemsCfg.x,
-      y: itemsCfg.y - i * itemsCfg.lineHeight,
-      size: itemsCfg.size,
-      font,
-    });
-  });
-
-  drawLabeled('totalAmount', formatCurrency(calcTotal(form.lineItems)));
-  drawLabeled('payeeInfo', form.payeeInfo);
-
+  const page = doc.addPage([PDF_PAGE.width, PDF_PAGE.height]);
+  await drawFormContent(page, form, fonts, { drawLabels: true });
   for (const seal of activeSeals) {
-    await embedSeal(doc, page, seal, font);
+    await embedSeal(doc, page, seal, fonts);
   }
 }
 
@@ -181,47 +259,12 @@ async function drawFormOnTemplate(
   doc: PDFDocument,
   form: DisbursementForm,
   activeSeals: SealKey[],
-  fonts: PdfFonts,
+  fonts: PdfFontSet,
 ) {
-  const page = doc.getPages()[0] ?? doc.addPage([595, 842]);
-  const { regular: font } = fonts;
-
-  const entries: { key: keyof typeof PDF_LAYOUT.fields; value: string }[] = [
-    { key: 'applyDate', value: form.applyDate },
-    { key: 'applicantName', value: form.applicantName },
-    { key: 'purpose', value: form.purpose },
-    {
-      key: 'lineItems',
-      value: form.lineItems
-        .map(
-          (r, i) =>
-            `${i + 1}. ${r.item} ${formatCurrency(r.amount)}${r.note ? ` (${r.note})` : ''}`,
-        )
-        .join('\n'),
-    },
-    { key: 'totalAmount', value: formatCurrency(calcTotal(form.lineItems)) },
-    { key: 'payeeInfo', value: form.payeeInfo },
-  ];
-
-  for (const { key, value } of entries) {
-    const cfg = PDF_LAYOUT.fields[key];
-    const lines =
-      key === 'lineItems'
-        ? value.split('\n')
-        : wrapText(value, Math.floor(('maxWidth' in cfg ? cfg.maxWidth : 400) / 14));
-    lines.forEach((line, i) => {
-      const lh = 'lineHeight' in cfg ? cfg.lineHeight : 14;
-      page.drawText(line, {
-        x: cfg.x,
-        y: cfg.y - i * lh,
-        size: cfg.size,
-        font,
-      });
-    });
-  }
-
+  const page = doc.getPages()[0] ?? doc.addPage([PDF_PAGE.width, PDF_PAGE.height]);
+  await drawFormContent(page, form, fonts, { drawLabels: false });
   for (const seal of activeSeals) {
-    await embedSeal(doc, page, seal, font);
+    await embedSeal(doc, page, seal, fonts);
   }
 }
 
@@ -241,11 +284,11 @@ export async function generateDisbursementPdf(
   let doc: PDFDocument;
   if (templateBytes) {
     doc = await PDFDocument.load(templateBytes);
-    const fonts = await embedChineseFonts(doc);
+    const fonts = await embedPdfFonts(doc);
     await drawFormOnTemplate(doc, form, activeSeals, fonts);
   } else {
     doc = await PDFDocument.create();
-    const fonts = await embedChineseFonts(doc);
+    const fonts = await embedPdfFonts(doc);
     await drawFormOnBlank(doc, form, activeSeals, fonts);
   }
 
