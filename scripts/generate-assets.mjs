@@ -15,14 +15,14 @@ async function main() {
   const font = await doc.embedFont(StandardFonts.HelveticaBold);
   const fontReg = await doc.embedFont(StandardFonts.Helvetica);
 
-  page.drawText('Taiwan TRPG Association', {
+  page.drawText('Disbursement Request Form', {
     x: 150,
     y: 800,
     size: 18,
     font,
     color: rgb(0.15, 0.15, 0.2),
   });
-  page.drawText('Disbursement Request / Chu-Zhang Shen-Qing Dan', {
+  page.drawText('Chu-Zhang Shen-Qing Dan / Demo Template', {
     x: 110,
     y: 775,
     size: 11,

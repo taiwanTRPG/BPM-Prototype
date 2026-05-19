@@ -29,7 +29,7 @@ export function createSeedCase(seq: number): CaseRecord {
     form: {
       applyDate: todayIsoDate(),
       applicantName: '王小明',
-      purpose: '協會活動場地租借費用',
+      purpose: '活動場地租借費用',
       lineItems: [
         { item: '場地租金', amount: 3500, note: '週末場' },
         { item: '清潔費', amount: 500, note: '' },

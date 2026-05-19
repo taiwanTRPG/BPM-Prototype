@@ -107,14 +107,14 @@ async function drawFormOnBlank(
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  page.drawText('Taiwan TRPG Association', {
+  page.drawText('Disbursement Request Form', {
     x: PDF_LAYOUT.title.x,
     y: PDF_LAYOUT.title.y,
     size: PDF_LAYOUT.title.size,
     font: fontBold,
     color: rgb(0.15, 0.15, 0.2),
   });
-  page.drawText('Disbursement Request / Chu-Zhang Shen-Qing', {
+  page.drawText('Chu-Zhang Shen-Qing Dan / Demo Template', {
     x: 120,
     y: PDF_LAYOUT.title.y - 24,
     size: 12,
