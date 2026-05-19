@@ -1,7 +1,8 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 import { PDF_LAYOUT, type SealKey } from '../../config/pdf-layout';
 import type { DisbursementForm } from '../../types';
 import { calcTotal, formatCurrency } from '../workflow';
+import { embedChineseFonts, type PdfFonts } from './fonts';
 
 const SEAL_FILES: Record<SealKey, string> = {
   supervisor: 'supervisor.png',
@@ -50,7 +51,7 @@ function wrapText(text: string, maxChars: number): string[] {
 async function drawProgrammaticSeal(
   page: ReturnType<PDFDocument['getPages']>[0],
   key: SealKey,
-  font: Awaited<ReturnType<PDFDocument['embedFont']>>,
+  font: PdfFonts['regular'],
 ) {
   const slot = PDF_LAYOUT.seals[key];
   const cx = slot.x + slot.width / 2;
@@ -78,7 +79,7 @@ async function embedSeal(
   doc: PDFDocument,
   page: ReturnType<PDFDocument['getPages']>[0],
   key: SealKey,
-  font: Awaited<ReturnType<PDFDocument['embedFont']>>,
+  font: PdfFonts['regular'],
 ) {
   const slot = PDF_LAYOUT.seals[key];
   const png = await loadSealPng(key);
@@ -102,19 +103,19 @@ async function drawFormOnBlank(
   doc: PDFDocument,
   form: DisbursementForm,
   activeSeals: SealKey[],
+  fonts: PdfFonts,
 ) {
   const page = doc.addPage([595, 842]);
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const { regular: font, bold: fontBold } = fonts;
 
-  page.drawText('Disbursement Request Form', {
+  page.drawText('出帳申請單', {
     x: PDF_LAYOUT.title.x,
     y: PDF_LAYOUT.title.y,
     size: PDF_LAYOUT.title.size,
     font: fontBold,
     color: rgb(0.15, 0.15, 0.2),
   });
-  page.drawText('Chu-Zhang Shen-Qing Dan / Demo Template', {
+  page.drawText('Disbursement Request (Demo)', {
     x: 120,
     y: PDF_LAYOUT.title.y - 24,
     size: 12,
@@ -135,7 +136,7 @@ async function drawFormOnBlank(
       color: rgb(0.3, 0.3, 0.35),
     });
     const maxWidth = 'maxWidth' in cfg ? cfg.maxWidth : 420;
-    const lines = wrapText(value, Math.floor(maxWidth / 6));
+    const lines = wrapText(value, Math.floor(maxWidth / 14));
     lines.forEach((line, i) => {
       page.drawText(line, {
         x: cfg.x,
@@ -180,9 +181,10 @@ async function drawFormOnTemplate(
   doc: PDFDocument,
   form: DisbursementForm,
   activeSeals: SealKey[],
+  fonts: PdfFonts,
 ) {
   const page = doc.getPages()[0] ?? doc.addPage([595, 842]);
-  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const { regular: font } = fonts;
 
   const entries: { key: keyof typeof PDF_LAYOUT.fields; value: string }[] = [
     { key: 'applyDate', value: form.applyDate },
@@ -206,7 +208,7 @@ async function drawFormOnTemplate(
     const lines =
       key === 'lineItems'
         ? value.split('\n')
-        : wrapText(value, Math.floor(('maxWidth' in cfg ? cfg.maxWidth : 400) / 6));
+        : wrapText(value, Math.floor(('maxWidth' in cfg ? cfg.maxWidth : 400) / 14));
     lines.forEach((line, i) => {
       const lh = 'lineHeight' in cfg ? cfg.lineHeight : 14;
       page.drawText(line, {
@@ -239,10 +241,12 @@ export async function generateDisbursementPdf(
   let doc: PDFDocument;
   if (templateBytes) {
     doc = await PDFDocument.load(templateBytes);
-    await drawFormOnTemplate(doc, form, activeSeals);
+    const fonts = await embedChineseFonts(doc);
+    await drawFormOnTemplate(doc, form, activeSeals, fonts);
   } else {
     doc = await PDFDocument.create();
-    await drawFormOnBlank(doc, form, activeSeals);
+    const fonts = await embedChineseFonts(doc);
+    await drawFormOnBlank(doc, form, activeSeals, fonts);
   }
 
   const bytes = await doc.save();

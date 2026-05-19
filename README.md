@@ -27,11 +27,18 @@ npm run preview
 
 ## GitHub Pages
 
-1. Repo → **Settings** → **Pages** → Source 選 **GitHub Actions**
-2. `main` 分支 push 後會自動部署
-3. 網址：`https://<username>.github.io/BPM-Prototype/`
+**第一次部署前必須先啟用 Pages**（否則 deploy 步驟會出現 `404 Not Found` / `Failed to create deployment`，屬正常現象，不代表 build 失敗）：
+
+1. 開啟 repo **Settings** → **Pages**
+2. **Build and deployment** → **Source** 選 **GitHub Actions**（勿選「Deploy from a branch」）
+3. 儲存後，到 **Actions** 分頁對失敗的 workflow 按 **Re-run all jobs**，或再 push 一次 `main`
+4. 成功後網址：`https://<username>.github.io/BPM-Prototype/`（實際路徑以 Settings → Pages 顯示為準）
 
 本專案使用 `HashRouter`（網址含 `#/`），以相容 GitHub Pages 靜態 hosting。
+
+PDF 產生需載入繁體中文字型（預設從 jsDelivr CDN 取得）。若部署環境無法連外網，請將 `NotoSansTC-Regular.ttf` 放到 `public/fonts/`。
+
+若 repo 為**私人**且非 GitHub Pro 以上方案，Pages 可能無法使用（需改為公開 repo 或升級方案）。
 
 ## Demo 提示
 
