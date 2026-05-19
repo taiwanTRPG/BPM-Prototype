@@ -36,7 +36,9 @@ npm run preview
 
 本專案使用 `HashRouter`（網址含 `#/`），以相容 GitHub Pages 靜態 hosting。
 
-PDF 產生需載入繁體中文字型（預設從 jsDelivr CDN 取得）。若部署環境無法連外網，請將 `NotoSansTC-Regular.ttf` 放到 `public/fonts/`。
+PDF 產生需載入繁體中文字型（預設從 jsDelivr CDN 取得）。可選：將 `NotoSansTC-Regular.ttf` 放到 `public/fonts/` 作為離線備援。
+
+**localStorage 不儲存 PDF 本體**（僅存表單與流程），避免容量爆掉導致白屏；開啟案件時會依需要重新產生 PDF。若曾發生 `QuotaExceededError`，請在瀏覽器清除本站資料後再試。
 
 若 repo 為**私人**且非 GitHub Pro 以上方案，Pages 可能無法使用（需改為公開 repo 或升級方案）。
 

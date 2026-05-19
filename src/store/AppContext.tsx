@@ -12,6 +12,7 @@ import { generateDisbursementPdf } from '../lib/pdf/generatePdf';
 import {
   createEmptyForm,
   createSeedCase,
+  findCaseInStorage,
   getDefaultState,
   loadState,
   saveState,
@@ -45,10 +46,6 @@ async function attachPdf(record: CaseRecord, version: number): Promise<CaseRecor
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(() => loadState());
-
-  useEffect(() => {
-    saveState(state);
-  }, [state]);
 
   const setStateAndSave = useCallback((updater: (prev: AppState) => AppState) => {
     setState((prev) => {
@@ -150,23 +147,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const patchCase = useCallback(
     async (id: string, patch: Partial<CaseRecord>) => {
       let target: CaseRecord | undefined;
-      setStateAndSave((prev) => {
+      setState((prev) => {
         const cases = prev.cases.map((c) => {
           if (c.id !== id) return c;
           target = { ...c, ...patch };
           return target;
         });
-        return { ...prev, cases };
+        const next = { ...prev, cases };
+        saveState(next);
+        return next;
       });
       return target;
     },
-    [setStateAndSave],
+    [],
   );
 
   const submitCase = useCallback(
     async (id: string) => {
-      const existing = loadState().cases.find((c) => c.id === id);
-      if (!existing) return;
+      const existing = findCaseInStorage(id);
+      if (!existing) throw new Error('找不到案件，請重新整理後再試');
       const err = validateForm(existing.form);
       if (err) throw new Error(err);
       const now = new Date().toISOString();
@@ -251,7 +250,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const getCase = useCallback(
-    (id: string) => state.cases.find((c) => c.id === id),
+    (id: string) =>
+      state.cases.find((c) => c.id === id) ?? findCaseInStorage(id),
     [state.cases],
   );
 

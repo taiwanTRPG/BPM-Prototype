@@ -11,7 +11,8 @@ async function loadFontBytes(): Promise<Uint8Array> {
   if (cachedFontBytes) return cachedFontBytes;
 
   const localUrl = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.ttf`;
-  for (const url of [localUrl, FONT_CDN]) {
+  // 先 CDN，避免未附字型檔時每次 404
+  for (const url of [FONT_CDN, localUrl]) {
     try {
       const res = await fetch(url);
       if (!res.ok) continue;

@@ -9,6 +9,7 @@ import {
   canReject,
   canSubmit,
 } from '../lib/workflow';
+import type { DisbursementForm } from '../types';
 import { useApp } from '../store/AppContext';
 
 export function FormDetailPage() {
@@ -22,24 +23,29 @@ export function FormDetailPage() {
     rejectCase,
   } = useApp();
   const record = id ? getCase(id) : undefined;
-  const [form, setForm] = useState(record?.form);
+  const [draft, setDraft] = useState<DisbursementForm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (record) setForm(record.form);
-  }, [record?.id, record?.updatedAt]);
+    setDraft(null);
+  }, [id, record?.id, record?.updatedAt]);
+
+  const form = draft ?? record?.form;
+  const editable = record && form ? canEditForm(currentRole, record) : false;
 
   if (!record || !form) {
     return (
       <div className="page card">
         <h1>找不到案件</h1>
+        <p className="muted">
+          可能為資料尚未同步。請重新整理，或至收件夾點選案件進入。
+        </p>
         <Link to="/inbox">返回收件夾</Link>
       </div>
     );
   }
 
-  const editable = canEditForm(currentRole, record);
   const showSubmit = canSubmit(currentRole, record);
   const showApprove = canApprove(currentRole, record);
   const showReject = canReject(currentRole, record);
@@ -76,7 +82,7 @@ export function FormDetailPage() {
           <FormFields
             form={form}
             readOnly={!editable}
-            onChange={editable ? setForm : undefined}
+            onChange={editable ? setDraft : undefined}
           />
           <div className="form-actions">
             {showSubmit && (
@@ -101,6 +107,7 @@ export function FormDetailPage() {
                     void run(async () => {
                       await updateCase(record.id, form);
                       await submitCase(record.id);
+                      setDraft(null);
                     })
                   }
                 >

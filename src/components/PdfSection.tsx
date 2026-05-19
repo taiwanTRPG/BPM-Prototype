@@ -14,9 +14,13 @@ export function PdfSection({ pdfBase64, version }: Props) {
       setPreviewUrl(null);
       return;
     }
-    const url = pdfBase64ToBlobUrl(pdfBase64);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+    try {
+      const url = pdfBase64ToBlobUrl(pdfBase64);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } catch {
+      setPreviewUrl(null);
+    }
   }, [pdfBase64]);
 
   if (!pdfBase64 || !previewUrl) {
