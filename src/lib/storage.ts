@@ -1,4 +1,4 @@
-import type { AppState, CaseRecord, DisbursementForm, Role } from '../types';
+import type { AppState, CaseRecord, DisbursementForm } from '../types';
 import { calcTotal } from './workflow';
 
 const STORAGE_KEY = 'bpm-demo-state-v1';
