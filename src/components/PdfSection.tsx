@@ -6,6 +6,18 @@ interface Props {
   version: number;
 }
 
+const PDF_DEMO_NOTICE =
+  '補充說明：目前僅為展示用 PDF，簽章僅為圖檔疊加。正式規格將採用 PDF/A 格式，並透過內部伺服器進行數位簽章驗證。';
+
+function DocumentHeading({ version }: { version?: number }) {
+  return (
+    <div className="pdf-section-heading">
+      <h2>{version ? `文件（版本 v${version}）` : '文件'}</h2>
+      <p className="pdf-notice muted">{PDF_DEMO_NOTICE}</p>
+    </div>
+  );
+}
+
 export function PdfSection({ pdfBase64, version }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -26,8 +38,8 @@ export function PdfSection({ pdfBase64, version }: Props) {
   if (!pdfBase64 || !previewUrl) {
     return (
       <section className="pdf-section card">
-        <h2>文件</h2>
-        <p className="muted">尚未產生 PDF（送出申請或完成簽核後會自動產生）</p>
+        <DocumentHeading />
+        <p className="muted pdf-pending">尚未產生 PDF（送出申請或完成簽核後會自動產生）</p>
       </section>
     );
   }
@@ -42,7 +54,7 @@ export function PdfSection({ pdfBase64, version }: Props) {
   return (
     <section className="pdf-section card">
       <div className="section-head">
-        <h2>文件（版本 v{version}）</h2>
+        <DocumentHeading version={version} />
         <button type="button" className="btn btn-primary" onClick={download}>
           下載 PDF
         </button>

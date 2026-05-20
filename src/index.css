@@ -490,12 +490,23 @@ a:hover {
 .pdf-section .section-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   margin-bottom: 0.75rem;
 }
 
-.pdf-section h2 {
+.pdf-section-heading h2 {
+  margin: 0 0 0.35rem;
+}
+
+.pdf-notice {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  max-width: 42rem;
+}
+
+.pdf-pending {
   margin: 0;
 }
 
